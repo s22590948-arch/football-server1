@@ -1,0 +1,2980 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+
+<meta
+  name="viewport"
+  content="width=device-width,
+           initial-scale=1,
+           viewport-fit=cover,
+           user-scalable=no">
+
+<title>3D Football</title>
+
+<style>
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #050505;
+  touch-action: none;
+  font-family: Arial, system-ui, sans-serif;
+}
+
+/* =====================================================
+   АЛЬБОМНАЯ ИГРОВАЯ ОБЛАСТЬ
+===================================================== */
+
+#gameShell {
+  position: fixed;
+  overflow: hidden;
+  background: #000;
+  transform-origin: center center;
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+   В альбомном режиме всё нормально.
+*/
+@media (orientation: landscape) {
+
+  #gameShell {
+    width: 100vw;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    transform: none;
+  }
+}
+
+/*
+   Если Android не повернул экран,
+   мы сами поворачиваем ИГРУ.
+*/
+@media (orientation: portrait) {
+
+  #gameShell {
+    width: 100vh;
+    height: 100vw;
+
+    left: 50%;
+    top: 50%;
+
+    transform:
+      translate(-50%, -50%)
+      rotate(90deg);
+  }
+}
+
+/* =====================================================
+   UI
+===================================================== */
+
+#ui {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* Счёт */
+
+#topScore {
+  position: absolute;
+  left: 50%;
+  top: max(10px, env(safe-area-inset-top));
+
+  transform: translateX(-50%);
+
+  text-align: center;
+
+  color: white;
+
+  text-shadow:
+    0 2px 4px #000,
+    0 0 8px #000;
+
+  white-space: nowrap;
+}
+
+#score {
+  font-size: clamp(17px, 3vw, 28px);
+  font-weight: 900;
+}
+
+#timer {
+  margin-top: 2px;
+  font-size: clamp(13px, 2vw, 18px);
+  font-weight: bold;
+}
+
+#timer.warning {
+  color: #ff3333;
+  animation: blink .5s infinite alternate;
+}
+
+@keyframes blink {
+  from { opacity: 1; }
+  to   { opacity: .35; }
+}
+
+/* Пауза */
+
+#pauseButton {
+  position: absolute;
+
+  left: max(10px, env(safe-area-inset-left));
+  top: max(10px, env(safe-area-inset-top));
+
+  width: 48px;
+  height: 48px;
+
+  border: 0;
+  border-radius: 14px;
+
+  color: white;
+  background: #0009;
+
+  font-size: 20px;
+  font-weight: bold;
+
+  pointer-events: auto;
+}
+
+/* MUTE */
+
+#muteButton {
+  position: absolute;
+
+  left: max(68px, env(safe-area-inset-left));
+  top: max(10px, env(safe-area-inset-top));
+
+  width: 48px;
+  height: 48px;
+
+  border: 0;
+  border-radius: 14px;
+
+  color: white;
+  background: #0009;
+
+  font-size: 18px;
+
+  pointer-events: auto;
+}
+
+/* Миникарта */
+
+#minimap {
+  position: absolute;
+
+  right: max(10px, env(safe-area-inset-right));
+  top: max(10px, env(safe-area-inset-top));
+
+  width: 100px;
+  height: 70px;
+
+  border:
+    2px solid rgba(255,255,255,.7);
+
+  border-radius: 8px;
+
+  background:
+    rgba(10,80,30,.7);
+
+  pointer-events: none;
+}
+
+/* =====================================================
+   ДЖОЙСТИК
+===================================================== */
+
+#joystick {
+  position: absolute;
+
+  width: 105px;
+  height: 105px;
+
+  border-radius: 50%;
+
+  display: none;
+
+  transform: translate(-50%, -50%);
+
+  background:
+    rgba(255,255,255,.14);
+
+  border:
+    2px solid rgba(255,255,255,.35);
+
+  pointer-events: none;
+}
+
+#stick {
+  position: absolute;
+
+  width: 48px;
+  height: 48px;
+
+  left: 50%;
+  top: 50%;
+
+  transform:
+    translate(-50%, -50%);
+
+  border-radius: 50%;
+
+  background:
+    rgba(255,255,255,.65);
+}
+
+/* =====================================================
+   КНОПКИ
+===================================================== */
+
+#buttons {
+  position: absolute;
+
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+
+  display: flex;
+  align-items: flex-end;
+
+  gap: 10px;
+
+  pointer-events: auto;
+}
+
+.gameButton {
+  width: 68px;
+  height: 68px;
+
+  border: 2px solid rgba(255,255,255,.3);
+  border-radius: 50%;
+
+  color: white;
+
+  background: #111b;
+
+  font-size: 11px;
+  font-weight: 900;
+
+  touch-action: none;
+}
+
+.gameButton:active {
+  transform: scale(.9);
+}
+
+#shootButton {
+  width: 86px;
+  height: 86px;
+
+  background:
+    rgba(190,30,30,.9);
+
+  font-size: 12px;
+}
+
+#sprintButton {
+  background: rgba(25,135,65,.92);
+  border-color: rgba(255,255,255,.45);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+/* =====================================================
+   КОЛЬЦО ЗАРЯДА
+===================================================== */
+
+#chargeRing {
+  position: absolute;
+
+  right: 30px;
+  bottom: 115px;
+
+  width: 70px;
+  height: 70px;
+
+  border-radius: 50%;
+
+  display: none;
+
+  background:
+    conic-gradient(
+      #ffd21f var(--charge, 0deg),
+      rgba(255,255,255,.15) 0
+    );
+
+  padding: 5px;
+}
+
+#chargeRing::after {
+  content: "";
+
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  border-radius: 50%;
+
+  background: #111;
+}
+
+/* =====================================================
+   МЕНЮ
+===================================================== */
+
+.screen {
+  position: absolute;
+
+  inset: 0;
+
+  z-index: 100;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  flex-direction: column;
+
+  color: white;
+
+  background:
+    radial-gradient(
+      circle at center,
+      #185a2b,
+      #07100a 75%
+    );
+
+  text-align: center;
+
+  pointer-events: auto;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.title {
+  font-size: clamp(32px, 8vw, 72px);
+  font-weight: 900;
+
+  margin-bottom: 24px;
+
+  text-shadow:
+    0 5px 10px #000;
+}
+
+.subtitle {
+  opacity: .75;
+  margin-bottom: 20px;
+}
+
+.menuButton {
+  width: min(300px, 70vw);
+
+  padding: 15px;
+
+  margin: 6px;
+
+  border: 0;
+
+  border-radius: 15px;
+
+  background: #168c3d;
+
+  color: white;
+
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.menuButton:active {
+  transform: scale(.96);
+}
+
+/* =====================================================
+   НАСТРОЙКИ
+===================================================== */
+
+#settingsPanel {
+  position: absolute;
+
+  inset: 0;
+
+  z-index: 150;
+
+  display: none;
+
+  align-items: center;
+  justify-content: center;
+
+  background: #000b;
+
+  pointer-events: auto;
+}
+
+.settingsBox {
+  width: min(380px, 85vw);
+
+  padding: 25px;
+
+  border-radius: 20px;
+
+  background: #17201a;
+
+  color: white;
+
+  text-align: center;
+}
+
+/* =====================================================
+   ПОВОРОТ
+===================================================== */
+
+#rotateMessage {
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 99999;
+
+  display: none;
+
+  align-items: center;
+  justify-content: center;
+
+  flex-direction: column;
+
+  color: white;
+
+  background: #101010;
+
+  text-align: center;
+}
+
+.rotateIcon {
+  font-size: 70px;
+
+  animation:
+    rotatePhone
+    1.4s
+    infinite
+    ease-in-out;
+}
+
+@keyframes rotatePhone {
+
+  0%,100% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: rotate(90deg);
+  }
+}
+
+/*
+  Сообщение показываем только если
+  пользователь ещё не запустил игру.
+*/
+body.showRotate #rotateMessage {
+  display: flex;
+}
+
+/* =====================================================
+   ПОДСКАЗКА
+===================================================== */
+
+#goalMessage {
+  position: absolute;
+
+  left: 50%;
+  top: 30%;
+
+  transform:
+    translate(-50%, -50%)
+    scale(.8);
+
+  color: white;
+
+  font-size: clamp(28px, 7vw, 65px);
+
+  font-weight: 900;
+
+  text-shadow:
+    0 4px 8px #000;
+
+  opacity: 0;
+
+  transition:
+    opacity .25s,
+    transform .25s;
+
+  white-space: nowrap;
+}
+
+#goalMessage.show {
+  opacity: 1;
+
+  transform:
+    translate(-50%, -50%)
+    scale(1);
+}
+</style>
+</head>
+
+<body>
+
+<style>
+#startupError {
+  position: fixed; inset: 12px; z-index: 100000;
+  display: none; overflow: auto; padding: 18px;
+  border-radius: 14px; background: #241010; color: #fff;
+  font: 15px/1.45 Arial, sans-serif; white-space: pre-wrap;
+}
+</style>
+<div id="startupError" role="alert"></div>
+<script>
+(function () {
+  function showStartupError(message) {
+    var box = document.getElementById("startupError");
+    if (!box) return;
+    box.style.display = "block";
+    box.textContent = "Не удалось запустить 3D-игру.\n\n" +
+      String(message || "Неизвестная ошибка") +
+      "\n\nПроверь интернет-соединение и открой сайт в Chrome. Если ошибка повторится, пришли этот текст.";
+  }
+  window.addEventListener("error", function (e) {
+    showStartupError(e.message || (e.target && e.target.src) || "Ошибка загрузки скрипта");
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    showStartupError(e.reason && (e.reason.message || e.reason) || "Ошибка загрузки модуля");
+  });
+})();
+</script>
+
+
+<!-- =====================================================
+     СООБЩЕНИЕ О ПОВОРОТЕ
+===================================================== -->
+
+<div id="rotateMessage">
+
+  <div class="rotateIcon">📱</div>
+
+  <h2>Поверните телефон</h2>
+
+  <div>
+    Игра работает в альбомной ориентации
+  </div>
+
+</div>
+
+
+<!-- =====================================================
+     ИГРОВАЯ ОБЛАСТЬ
+===================================================== -->
+
+<div id="gameShell">
+
+  <div id="game"></div>
+
+  <div id="ui">
+
+    <div id="topScore">
+
+      <div id="score">
+        СИНИЕ 0 : 0 КРАСНЫЕ
+      </div>
+
+      <div id="timer">
+        01:30
+      </div>
+
+    </div>
+
+
+    <button id="pauseButton">
+      Ⅱ
+    </button>
+
+    <button id="muteButton">
+      🔊
+    </button>
+
+
+    <canvas id="minimap"></canvas>
+
+
+    <div id="joystick">
+      <div id="stick"></div>
+    </div>
+
+
+    <div id="chargeRing"></div>
+
+
+    <div id="goalMessage">
+      ГОЛ!
+    </div>
+
+
+    <div id="buttons">
+
+      <button
+        class="gameButton"
+        id="passButton">
+        PASS
+      </button>
+
+      <button
+        class="gameButton"
+        id="switchButton">
+        SWITCH
+      </button>
+
+      <button
+        class="gameButton"
+        id="tackleButton">
+        ОТБОР
+      </button>
+
+      <button
+        class="gameButton"
+        id="shootButton">
+        SHOOT
+      </button>
+
+      <button
+        class="gameButton"
+        id="sprintButton">
+        БЕГ
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- =================================================
+       СТАРТОВЫЙ ЭКРАН
+  ================================================== -->
+
+  <div
+    class="screen"
+    id="startScreen">
+
+    <div class="title">
+      ⚽ 3D FOOTBALL
+    </div>
+
+    <div class="subtitle">
+      Мобильный футбольный матч
+    </div>
+
+    <button
+      class="menuButton"
+      id="playButton">
+      ИГРАТЬ
+    </button>
+
+    <button class="menuButton" id="onlineButton">ОНЛАЙН 1 НА 1</button>
+
+    <button
+      class="menuButton"
+      id="controlsButton">
+      УПРАВЛЕНИЕ
+    </button>
+
+    <button
+      class="menuButton"
+      id="settingsButton">
+      НАСТРОЙКИ
+    </button>
+
+  </div>
+
+
+  <div class="screen hidden" id="onlineScreen">
+    <div class="title">ОНЛАЙН 1 НА 1</div>
+    <div class="subtitle" id="onlineStatus">Создай комнату или введи код друга</div>
+    <button class="menuButton" id="createRoomButton">СОЗДАТЬ КОМНАТУ</button>
+    <input id="roomCodeInput" maxlength="6" placeholder="КОД КОМНАТЫ" autocomplete="off" style="width:min(300px,70vw);padding:14px;border-radius:12px;border:0;text-align:center;text-transform:uppercase;font-size:20px;margin:8px">
+    <button class="menuButton" id="joinRoomButton">ПРИСОЕДИНИТЬСЯ</button>
+    <div id="roomCodeDisplay" style="font-size:25px;font-weight:900;margin:10px"></div>
+    <button class="menuButton hidden" id="startOnlineButton">НАЧАТЬ МАТЧ</button>
+    <button class="menuButton" id="backOnlineButton">НАЗАД</button>
+  </div>
+
+  <!-- =================================================
+       ПАУЗА
+  ================================================== -->
+
+  <div
+    class="screen hidden"
+    id="pauseScreen">
+
+    <div class="title">
+      ПАУЗА
+    </div>
+
+    <button
+      class="menuButton"
+      id="resumeButton">
+      ПРОДОЛЖИТЬ
+    </button>
+
+    <button
+      class="menuButton"
+      id="restartButton">
+      ЗАНОВО
+    </button>
+
+  </div>
+
+
+  <!-- =================================================
+       РЕЗУЛЬТАТ
+  ================================================== -->
+
+  <div
+    class="screen hidden"
+    id="resultScreen">
+
+    <div class="title">
+      МАТЧ ОКОНЧЕН
+    </div>
+
+    <div id="resultText">
+      0 : 0
+    </div>
+
+    <br>
+
+    <button
+      class="menuButton"
+      id="againButton">
+      ЕЩЁ РАЗ
+    </button>
+
+  </div>
+
+
+  <!-- =================================================
+       НАСТРОЙКИ
+  ================================================== -->
+
+  <div id="settingsPanel">
+
+    <div class="settingsBox">
+
+      <h2>НАСТРОЙКИ</h2>
+
+      <button
+        class="menuButton"
+        id="soundSetting">
+        ЗВУК: ВКЛ
+      </button>
+
+      <button
+        class="menuButton"
+        id="vibrationSetting">
+        ВИБРАЦИЯ: ВКЛ
+      </button>
+
+      <button
+        class="menuButton"
+        id="closeSettings">
+        ЗАКРЫТЬ
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- =====================================================
+     THREE.JS
+===================================================== -->
+
+<script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+<script type="module">
+
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+
+
+/* =====================================================
+   ОСНОВА
+===================================================== */
+
+const shell =
+  document.getElementById("gameShell");
+
+const game =
+  document.getElementById("game");
+
+
+const scene =
+  new THREE.Scene();
+
+
+scene.background =
+  new THREE.Color(
+    0x82cbea
+  );
+
+
+scene.fog =
+  new THREE.Fog(
+    0x82cbea,
+    60,
+    170
+  );
+
+
+/* =====================================================
+   RENDERER
+===================================================== */
+
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({
+    antialias: window.innerWidth > 700,
+    alpha: false,
+    powerPreference: "default"
+  });
+} catch (error) {
+  const box = document.getElementById("startupError");
+  if (box) {
+    box.style.display = "block";
+    box.textContent = "Браузер не смог запустить WebGL.\\n\\n" +
+      (error && error.message ? error.message : String(error)) +
+      "\\n\\nОткрой игру в Google Chrome и проверь, включено ли аппаратное ускорение.";
+  }
+  throw error;
+}
+
+
+renderer.setPixelRatio(
+  Math.min(
+    window.devicePixelRatio,
+    2
+  )
+);
+
+
+renderer.setSize(
+  Math.max(1, shell.clientWidth || window.innerWidth),
+  Math.max(1, shell.clientHeight || window.innerHeight),
+  false
+);
+renderer.domElement.style.position = "absolute";
+renderer.domElement.style.left = "0";
+renderer.domElement.style.top = "0";
+renderer.domElement.style.width = "100%";
+renderer.domElement.style.height = "100%";
+renderer.domElement.style.display = "block";
+
+
+renderer.outputColorSpace =
+  THREE.SRGBColorSpace;
+
+
+game.appendChild(
+  renderer.domElement
+);
+
+
+/* =====================================================
+   КАМЕРА
+===================================================== */
+
+const camera =
+  new THREE.PerspectiveCamera(
+    55,
+    16 / 9,
+    .1,
+    300
+  );
+
+
+camera.position.set(-25, 30, 30);
+camera.lookAt(0, 0, 0);
+
+
+/* =====================================================
+   СВЕТ
+===================================================== */
+
+scene.add(
+  new THREE.HemisphereLight(
+    0xffffff,
+    0x315d2d,
+    2
+  )
+);
+
+
+const sun =
+  new THREE.DirectionalLight(
+    0xffffff,
+    1.5
+  );
+
+
+sun.position.set(
+  20,
+  40,
+  10
+);
+
+
+scene.add(sun);
+
+
+/* =====================================================
+   ПОЛЕ
+===================================================== */
+
+const FIELD_X = 100;
+const FIELD_Z = 60;
+
+
+const field =
+  new THREE.Mesh(
+
+    new THREE.PlaneGeometry(
+      FIELD_X,
+      FIELD_Z
+    ),
+
+    new THREE.MeshLambertMaterial({
+      color: 0x26833b
+    })
+
+  );
+
+
+field.rotation.x =
+  -Math.PI / 2;
+
+
+scene.add(field);
+
+
+/* =====================================================
+   ТЕКСТУРА ТРАВЫ
+===================================================== */
+
+function createGrassTexture() {
+
+  const canvas =
+    document.createElement("canvas");
+
+  canvas.width = 256;
+  canvas.height = 256;
+
+  const ctx =
+    canvas.getContext("2d");
+
+  ctx.fillStyle =
+    "#27853d";
+
+  ctx.fillRect(
+    0,
+    0,
+    256,
+    256
+  );
+
+
+  for(let i = 0; i < 1800; i++){
+
+    const x =
+      Math.random() * 256;
+
+    const y =
+      Math.random() * 256;
+
+    ctx.fillStyle =
+      Math.random() > .5
+        ? "#2d9144"
+        : "#217638";
+
+    ctx.fillRect(
+      x,
+      y,
+      1,
+      3
+    );
+  }
+
+
+  const texture =
+    new THREE.CanvasTexture(
+      canvas
+    );
+
+
+  texture.wrapS =
+    THREE.RepeatWrapping;
+
+  texture.wrapT =
+    THREE.RepeatWrapping;
+
+  texture.repeat.set(
+    7,
+    5
+  );
+
+
+  return texture;
+}
+
+
+field.material.map =
+  createGrassTexture();
+
+field.material.needsUpdate =
+  true;
+
+
+/* =====================================================
+   ЛИНИИ ПОЛЯ
+===================================================== */
+
+function makeLine(points){
+
+  const geometry =
+    new THREE.BufferGeometry()
+      .setFromPoints(points);
+
+  const material =
+    new THREE.LineBasicMaterial({
+      color: 0xffffff
+    });
+
+  const line =
+    new THREE.Line(
+      geometry,
+      material
+    );
+
+  scene.add(line);
+
+  return line;
+}
+
+
+const lineY = .035;
+
+
+makeLine([
+  new THREE.Vector3(
+    -50,
+    lineY,
+    -30
+  ),
+  new THREE.Vector3(
+    50,
+    lineY,
+    -30
+  )
+]);
+
+
+makeLine([
+  new THREE.Vector3(
+    50,
+    lineY,
+    -30
+  ),
+  new THREE.Vector3(
+    50,
+    lineY,
+    30
+  )
+]);
+
+
+makeLine([
+  new THREE.Vector3(
+    50,
+    lineY,
+    30
+  ),
+  new THREE.Vector3(
+    -50,
+    lineY,
+    30
+  )
+]);
+
+
+makeLine([
+  new THREE.Vector3(
+    -50,
+    lineY,
+    30
+  ),
+  new THREE.Vector3(
+    -50,
+    lineY,
+    -30
+  )
+]);
+
+
+/* Центральная линия */
+
+makeLine([
+  new THREE.Vector3(
+    0,
+    lineY,
+    -30
+  ),
+  new THREE.Vector3(
+    0,
+    lineY,
+    30
+  )
+]);
+
+
+/* Центральный круг */
+
+const centerPoints = [];
+
+
+for(
+  let i = 0;
+  i <= 64;
+  i++
+){
+
+  const a =
+    i / 64 *
+    Math.PI * 2;
+
+  centerPoints.push(
+    new THREE.Vector3(
+      Math.cos(a) * 9,
+      lineY,
+      Math.sin(a) * 9
+    )
+  );
+}
+
+
+const centerCircle =
+  new THREE.LineLoop(
+
+    new THREE.BufferGeometry()
+      .setFromPoints(
+        centerPoints
+      ),
+
+    new THREE.LineBasicMaterial({
+      color: 0xffffff
+    })
+
+  );
+
+
+scene.add(
+  centerCircle
+);
+
+
+/* Штрафные, вратарские площадки и угловые отметки */
+function makeFieldRect(x1, x2, z1, z2){
+  // Замкнутый контур: последняя сторона тоже рисуется.
+  const rect = new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(x1, lineY, z1),
+      new THREE.Vector3(x2, lineY, z1),
+      new THREE.Vector3(x2, lineY, z2),
+      new THREE.Vector3(x1, lineY, z2)
+    ]),
+    new THREE.LineBasicMaterial({ color: 0xffffff })
+  );
+  scene.add(rect);
+  return rect;
+}
+
+// Большие штрафные площадки: глубина 16 м, ширина 36 м.
+makeFieldRect(-50, -34, -18, 18);
+makeFieldRect(34, 50, -18, 18);
+
+// Вратарские площадки: глубина 6 м, ширина 20 м.
+makeFieldRect(-50, -44, -10, 10);
+makeFieldRect(44, 50, -10, 10);
+
+// Одиннадцатиметровые точки и дуги перед штрафными.
+function makePenaltySpot(x){
+  const spot = new THREE.Mesh(
+    new THREE.CircleGeometry(0.42, 20),
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
+  );
+  spot.rotation.x = -Math.PI / 2;
+  spot.position.set(x, lineY + 0.015, 0);
+  scene.add(spot);
+}
+makePenaltySpot(-39);
+makePenaltySpot(39);
+
+function makePenaltyArc(centerX, towardMidfield){
+  const radius = 9.15;
+  const points = [];
+  // Рисуем только часть окружности за пределами штрафной площадки.
+  for(let i = 0; i <= 64; i++){
+    const a = Math.PI * (i / 64);
+    const x = centerX + Math.cos(a) * radius;
+    const z = Math.sin(a) * radius;
+    if((towardMidfield < 0 && x < -34) ||
+       (towardMidfield > 0 && x > 34)){
+      points.push(new THREE.Vector3(x, lineY + 0.01, z));
+    }
+  }
+  if(points.length > 1){
+    const arc = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(points),
+      new THREE.LineBasicMaterial({ color: 0xffffff })
+    );
+    scene.add(arc);
+  }
+}
+makePenaltyArc(-39, 1);
+makePenaltyArc(39, -1);
+
+// Угловые дуги во всех четырёх углах поля.
+function makeCornerArc(sx, sz){
+  const radius = 1.5;
+  const points = [];
+  for(let i = 0; i <= 24; i++){
+    const angle = (Math.PI / 2) * (i / 24);
+    points.push(new THREE.Vector3(
+      sx * (50 - radius * Math.cos(angle)),
+      lineY + 0.01,
+      sz * (30 - radius * Math.sin(angle))
+    ));
+  }
+  const arc = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(points),
+    new THREE.LineBasicMaterial({ color: 0xffffff })
+  );
+  scene.add(arc);
+}
+
+makeCornerArc(-1, -1);
+makeCornerArc(-1, 1);
+makeCornerArc(1, -1);
+makeCornerArc(1, 1);
+
+
+/* =====================================================
+   ВОРОТА
+===================================================== */
+
+function createGoal(x){
+
+  const group = new THREE.Group();
+
+  // Размеры ворот: ширина по Z, высота по Y, глубина по X
+  const goalW = 18;
+  const goalH = 4;
+  const depth = 4;
+
+  const white = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: .55,
+    metalness: .05
+  });
+
+  const netMat = new THREE.LineBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: .48
+  });
+
+  // Круглые стойки и перекладина
+  const postGeo = new THREE.CylinderGeometry(.22, .22, goalH, 10);
+  const barGeo = new THREE.CylinderGeometry(.22, .22, goalW, 10);
+
+  const leftPost = new THREE.Mesh(postGeo, white);
+  leftPost.position.set(x, goalH/2, -goalW/2);
+
+  const rightPost = new THREE.Mesh(postGeo, white);
+  rightPost.position.set(x, goalH/2, goalW/2);
+
+  const crossbar = new THREE.Mesh(barGeo, white);
+  crossbar.rotation.x = Math.PI / 2;
+  crossbar.position.set(x, goalH, 0);
+
+  group.add(leftPost, rightPost, crossbar);
+
+  // Задняя рама ворот
+  const backX = x + (x > 0 ? depth : -depth);
+
+  const backLeft = new THREE.Mesh(postGeo, white);
+  backLeft.position.set(backX, goalH/2, -goalW/2);
+
+  const backRight = new THREE.Mesh(postGeo, white);
+  backRight.position.set(backX, goalH/2, goalW/2);
+
+  const backBar = new THREE.Mesh(barGeo, white);
+  backBar.rotation.x = Math.PI / 2;
+  backBar.position.set(backX, goalH, 0);
+
+  group.add(backLeft, backRight, backBar);
+
+  // Нижние боковые штанги
+  const sideBarGeo = new THREE.CylinderGeometry(.12, .12, depth, 8);
+
+  for(const z of [-goalW/2, goalW/2]){
+    const side = new THREE.Mesh(sideBarGeo, white);
+    side.rotation.z = Math.PI / 2;
+    side.position.set(
+      (x + backX) / 2,
+      .12,
+      z
+    );
+    group.add(side);
+  }
+
+  // Сетка: задняя плоскость
+  function addNetLine(a, b){
+    const g = new THREE.BufferGeometry().setFromPoints([a,b]);
+    group.add(new THREE.Line(g, netMat));
+  }
+
+  const minX = Math.min(x, backX);
+  const maxX = Math.max(x, backX);
+
+  // Задняя сетка — вертикальные полосы
+  for(let z = -goalW/2; z <= goalW/2 + .01; z += 2){
+    addNetLine(
+      new THREE.Vector3(backX, .18, z),
+      new THREE.Vector3(backX, goalH, z)
+    );
+  }
+
+  // Задняя сетка — горизонтальные полосы
+  for(let y = .2; y <= goalH + .01; y += 1){
+    addNetLine(
+      new THREE.Vector3(backX, y, -goalW/2),
+      new THREE.Vector3(backX, y, goalW/2)
+    );
+  }
+
+  // Верх и боковины сетки, чтобы ворота выглядели объёмными
+  for(let z = -goalW/2; z <= goalW/2 + .01; z += 2){
+    addNetLine(
+      new THREE.Vector3(minX, goalH, z),
+      new THREE.Vector3(maxX, goalH, z)
+    );
+  }
+
+  for(const z of [-goalW/2, goalW/2]){
+    for(let y = 1; y <= goalH; y += 1){
+      addNetLine(
+        new THREE.Vector3(minX, y, z),
+        new THREE.Vector3(maxX, y, z)
+      );
+    }
+  }
+
+  // Небольшая тёмная подложка внутри сетки делает её заметнее
+  const inside = new THREE.Mesh(
+    new THREE.PlaneGeometry(goalW - .3, goalH - .3),
+    new THREE.MeshBasicMaterial({
+      color: 0x12351d,
+      transparent: true,
+      opacity: .12,
+      side: THREE.DoubleSide
+    })
+  );
+  inside.rotation.y = Math.PI / 2;
+  inside.position.set(backX + (x > 0 ? .03 : -.03), goalH/2, 0);
+  group.add(inside);
+
+  scene.add(group);
+}
+
+createGoal(50);
+createGoal(-50);
+
+
+/* =====================================================
+   МЯЧ
+===================================================== */
+
+const ball =
+  new THREE.Mesh(
+
+    new THREE.IcosahedronGeometry(
+      0.65,
+      1
+    ),
+
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: .65
+    })
+
+  );
+
+
+ball.position.set(
+  0,
+  1.15,
+  0
+);
+
+
+scene.add(ball);
+
+
+const ballVelocity =
+  new THREE.Vector3();
+
+
+/* =====================================================
+   ИГРОКИ
+===================================================== */
+
+const players = [];
+
+
+function createPlayer(
+  team,
+  x,
+  z,
+  goalkeeper = false
+){
+
+  const group =
+    new THREE.Group();
+
+
+  const color =
+    team === "blue"
+      ? 0x1565c0
+      : 0xc62828;
+
+
+  const body =
+    new THREE.Mesh(
+
+      new THREE.CapsuleGeometry(
+        .7,
+        1.35,
+        4,
+        6
+      ),
+
+      new THREE.MeshLambertMaterial({
+        color
+      })
+
+    );
+
+
+  body.position.y =
+    1.7;
+
+
+  group.add(body);
+
+
+  const head =
+    new THREE.Mesh(
+
+      new THREE.IcosahedronGeometry(
+        .53,
+        1
+      ),
+
+      new THREE.MeshLambertMaterial({
+        color: 0xffc49b
+      })
+
+    );
+
+
+  head.position.y =
+    3;
+
+
+  group.add(head);
+
+
+  const legMaterial =
+    new THREE.MeshLambertMaterial({
+      color: 0x222222
+    });
+
+
+  for(
+    let side = -1;
+    side <= 1;
+    side += 2
+  ){
+
+    const leg =
+      new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+          .3,
+          1.1,
+          .35
+        ),
+
+        legMaterial
+
+      );
+
+
+    leg.position.set(
+      side * .25,
+      .55,
+      0
+    );
+
+
+    group.add(leg);
+  }
+
+
+  group.position.set(
+    x,
+    0,
+    z
+  );
+
+
+  scene.add(group);
+
+
+  const player = {
+
+    mesh: group,
+
+    team,
+
+    goalkeeper,
+
+    speed:
+      goalkeeper
+        ? 6.8
+        : 7.5,
+
+    catchRadius: goalkeeper ? 3.0 : 0,
+
+    hasBall: false,
+    holdTimer: 0,
+
+    home:
+      new THREE.Vector3(
+        x,
+        0,
+        z
+      )
+
+  };
+
+
+  players.push(
+    player
+  );
+
+
+  return player;
+}
+
+
+/* Синие */
+
+createPlayer(
+  "blue",
+  -30,
+  -14
+);
+
+createPlayer(
+  "blue",
+  -18,
+  0
+);
+
+createPlayer(
+  "blue",
+  -30,
+  14
+);
+
+createPlayer(
+  "blue",
+  -46,
+  0,
+  true
+);
+
+
+/* Красные */
+
+createPlayer(
+  "red",
+  30,
+  -14
+);
+
+createPlayer(
+  "red",
+  18,
+  0
+);
+
+createPlayer(
+  "red",
+  30,
+  14
+);
+
+createPlayer(
+  "red",
+  46,
+  0,
+  true
+);
+
+
+/* =====================================================
+   СОСТОЯНИЕ
+===================================================== */
+
+let activePlayer = 0; // индекс игрока, которым управляет этот телефон
+let remoteActivePlayer = 4;
+let localTeam = "blue";
+let onlineMode = false;
+let isRoomHost = false;
+let roomCode = "";
+let socket = null;
+let remoteInput = {x:0,y:0,sprinting:false};
+let remoteActionQueue = [];
+let lastNetworkSend = 0;
+
+let blueScore = 0;
+let redScore = 0;
+
+let blueDirection = 1;
+// Красная команда не входит в центральный круг до первого касания мяча синими.
+let kickoffPending = true;
+let lastBallTeam = null;
+let lastBallPlayer = null;
+
+let timeLeft = 90;
+
+let playing = false;
+let paused = false;
+
+let charging = false;
+let charge = 0;
+
+let vibrationEnabled = true;
+
+let muted = false;
+
+
+/* =====================================================
+   АУДИО
+===================================================== */
+
+let audioContext = null;
+let masterGain = null;
+let crowdSource = null;
+
+
+function initAudio(){
+  // Звук не должен мешать запуску матча: в некоторых Android WebView
+  // AudioContext отсутствует или браузер запрещает его создание.
+  if(audioContext) {
+    if(audioContext.state === "suspended") {
+      audioContext.resume().catch(()=>{});
+    }
+    return;
+  }
+
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if(!AudioContextClass) return;
+
+    audioContext = new AudioContextClass();
+    masterGain = audioContext.createGain();
+    masterGain.gain.value = muted ? 0 : .12;
+    masterGain.connect(audioContext.destination);
+
+    const buffer = audioContext.createBuffer(
+      1,
+      Math.max(1, Math.floor(audioContext.sampleRate * 2)),
+      audioContext.sampleRate
+    );
+    const data = buffer.getChannelData(0);
+    for(let i = 0; i < data.length; i++){
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    crowdSource = audioContext.createBufferSource();
+    crowdSource.buffer = buffer;
+    crowdSource.loop = true;
+
+    const filter = audioContext.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 600;
+
+    crowdSource.connect(filter).connect(masterGain);
+    crowdSource.start();
+  } catch(error) {
+    // Отключаем только звук; игровой процесс продолжает работать.
+    audioContext = null;
+    masterGain = null;
+    crowdSource = null;
+    console.warn("Звук отключён:", error);
+  }
+}
+
+
+function tone(
+  frequency,
+  duration
+){
+  if(!audioContext || !masterGain || muted) return;
+
+  try {
+  const osc =
+    audioContext.createOscillator();
+
+  const gain =
+    audioContext.createGain();
+
+
+  osc.frequency.value =
+    frequency;
+
+
+  gain.gain.setValueAtTime(
+    .001,
+    audioContext.currentTime
+  );
+
+
+  gain.gain.exponentialRampToValueAtTime(
+    .15,
+    audioContext.currentTime + .02
+  );
+
+
+  gain.gain.exponentialRampToValueAtTime(
+    .001,
+    audioContext.currentTime + duration
+  );
+
+
+  osc.connect(gain);
+  gain.connect(masterGain);
+
+
+  osc.start();
+
+  osc.stop(
+    audioContext.currentTime +
+    duration
+  );
+  } catch(error) {
+    console.warn("Ошибка звука:", error);
+  }
+}
+
+
+function whistle(){
+
+  tone(
+    2000,
+    .3
+  );
+}
+
+
+function kickSound(){
+
+  if(!audioContext || muted)
+    return;
+
+
+  const buffer =
+    audioContext.createBuffer(
+      1,
+      audioContext.sampleRate * .05,
+      audioContext.sampleRate
+    );
+
+
+  const data =
+    buffer.getChannelData(0);
+
+
+  for(
+    let i = 0;
+    i < data.length;
+    i++
+  ){
+
+    data[i] =
+      (Math.random() * 2 - 1) *
+      (1 - i / data.length);
+  }
+
+
+  const source =
+    audioContext.createBufferSource();
+
+
+  source.buffer =
+    buffer;
+
+
+  const filter =
+    audioContext.createBiquadFilter();
+
+
+  filter.type =
+    "lowpass";
+
+  filter.frequency.value =
+    1300;
+
+
+  source
+    .connect(filter)
+    .connect(masterGain);
+
+
+  source.start();
+}
+
+
+function goalSound(){
+
+  tone(500,.12);
+
+  setTimeout(
+    () => tone(700,.12),
+    100
+  );
+
+  setTimeout(
+    () => tone(950,.25),
+    200
+  );
+}
+
+
+/* =====================================================
+   ВИБРАЦИЯ
+===================================================== */
+
+function vibrate(pattern){
+
+  if(
+    vibrationEnabled &&
+    navigator.vibrate
+  ){
+
+    navigator.vibrate(
+      pattern
+    );
+  }
+}
+
+
+/* =====================================================
+   UI
+===================================================== */
+
+const scoreElement =
+  document.getElementById(
+    "score"
+  );
+
+const timerElement =
+  document.getElementById(
+    "timer"
+  );
+
+
+function updateScore(){
+
+  scoreElement.textContent =
+    `СИНИЕ ${blueScore} : ${redScore} КРАСНЫЕ`;
+}
+
+
+function updateTimer(){
+
+  const seconds =
+    Math.max(
+      0,
+      Math.ceil(timeLeft)
+    );
+
+
+  const minutes =
+    Math.floor(
+      seconds / 60
+    );
+
+
+  const sec =
+    seconds % 60;
+
+
+  timerElement.textContent =
+    `${String(minutes).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+
+
+  timerElement.classList.toggle(
+    "warning",
+    seconds <= 10
+  );
+}
+
+
+/* =====================================================
+   ДЖОЙСТИК
+===================================================== */
+
+const joystick =
+  document.getElementById(
+    "joystick"
+  );
+
+const stick =
+  document.getElementById(
+    "stick"
+  );
+
+
+const input = {
+  x: 0,
+  y: 0
+};
+
+let sprinting = false;
+
+
+let joystickPointer =
+  null;
+
+
+function getLocalCoordinates(clientX, clientY){
+  const portrait = window.innerHeight > window.innerWidth;
+
+  if (!portrait){
+    return { x: clientX, y: clientY };
+  }
+
+  // gameShell повернут на +90deg. Переводим координаты пальца
+  // из физического экрана в локальные координаты повернутой игры.
+  const localW = window.innerHeight;
+  const localH = window.innerWidth;
+
+  return {
+    x: clientY - window.innerHeight / 2 + localW / 2,
+    y: window.innerWidth / 2 - clientX + localH / 2
+  };
+}
+
+function startJoystick(e){
+  if (e.target.closest && e.target.closest('button, #menu, #pauseScreen, #resultScreen, #settingsPanel, #helpPanel')) return;
+  if (joystickPointer !== null || !playing || paused) return;
+
+  // Левая половина именно видимого экрана.
+  if (e.clientX > window.innerWidth * .55) return;
+
+  joystickPointer = e.pointerId;
+
+  const p = getLocalCoordinates(e.clientX, e.clientY);
+  joystick.style.left = p.x + 'px';
+  joystick.style.top = p.y + 'px';
+  joystick.style.display = 'block';
+
+  moveJoystick(e);
+}
+
+function moveJoystick(e){
+  if (e.pointerId !== joystickPointer) return;
+
+  const rect = joystick.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  // В портретном режиме родитель повернут на 90°, поэтому оси пальца
+  // меняются местами. Используем физическое смещение относительно центра.
+  let dx = e.clientX - cx;
+  let dy = e.clientY - cy;
+
+  const max = 38;
+
+  // После поворота local X -> screen Y, local Y -> -screen X.
+  if (window.innerHeight > window.innerWidth){
+    const localDX = dy;
+    const localDY = -dx;
+    dx = localDX;
+    dy = localDY;
+  }
+
+  const length = Math.hypot(dx, dy);
+  if (length > max){
+    dx = dx / length * max;
+    dy = dy / length * max;
+  }
+
+  stick.style.left = `calc(50% + ${dx}px)`;
+  stick.style.top = `calc(50% + ${dy}px)`;
+
+  input.x = dx / max;
+  input.y = dy / max;
+}
+
+function endJoystick(e){
+
+  if(
+    e.pointerId !==
+    joystickPointer
+  )
+    return;
+
+
+  joystickPointer =
+    null;
+
+
+  joystick.style.display =
+    "none";
+
+
+  stick.style.left =
+    "50%";
+
+  stick.style.top =
+    "50%";
+
+
+  input.x = 0;
+  input.y = 0;
+}
+
+
+document.addEventListener(
+  "pointerdown",
+  startJoystick
+);
+
+
+document.addEventListener(
+  "pointermove",
+  moveJoystick
+);
+
+
+document.addEventListener(
+  "pointerup",
+  endJoystick
+);
+
+
+document.addEventListener(
+  "pointercancel",
+  endJoystick
+);
+
+
+/* =====================================================
+   ДВИЖЕНИЕ ИГРОКА
+===================================================== */
+
+function updateControlledPlayer(dt, playerIndex = activePlayer, controlInput = input, sprint = sprinting){
+  const player = players[playerIndex];
+  if(!player) return;
+  const movement = new THREE.Vector3(controlInput.x, 0, controlInput.y);
+  if(movement.lengthSq() > .01){
+    movement.normalize();
+    player.mesh.position.addScaledVector(movement, player.speed * (sprint ? 1.55 : 1) * dt);
+    player.mesh.position.x = THREE.MathUtils.clamp(player.mesh.position.x, -49.2, 49.2);
+    player.mesh.position.z = THREE.MathUtils.clamp(player.mesh.position.z, -29.2, 29.2);
+    player.mesh.rotation.y = Math.atan2(movement.x, movement.z);
+  }
+}
+
+
+/* =====================================================
+   AI
+===================================================== */
+
+function updateAI(
+  player,
+  index,
+  dt
+){
+  // Когда вратарь держит мяч, даже выбранные игроки временно
+  // автоматически выходят из его штрафной зоны.
+  const keeperHolding = players.find(p => p.goalkeeper && p.hasBall);
+  const userControlled =
+    index === activePlayer || (onlineMode && index === remoteActivePlayer);
+
+  if(userControlled && !keeperHolding) return;
+
+  const target = new THREE.Vector3();
+
+  // =====================================================
+  // ВРАТАРЬ
+  // =====================================================
+  if(player.goalkeeper){
+    const gx = player.team === "blue" ? -46 * blueDirection : 46 * blueDirection;
+    const gz = THREE.MathUtils.clamp(ball.position.z, -18, 18);
+
+    // Вратарь держится на своей линии и следит за мячом.
+    target.set(gx, 0, gz);
+
+    const keeperDist = player.mesh.position.distanceTo(ball.position);
+
+    // Вратарь ловит мяч только на короткое время, затем выбивает его.
+    // Вратарь может ловить свободный мяч или мяч соперника,
+    // но не может подбирать передачу/мяч от своего полевого игрока.
+    if(!player.hasBall &&
+       lastBallTeam !== player.team &&
+       keeperDist < 3.0 &&
+       Math.abs(ball.position.x - gx) < 5.5){
+      player.hasBall = true;
+      player.holdTimer = 1.0;
+      ballVelocity.set(0,0,0);
+      lastBallTeam = player.team;
+    }
+
+    if(player.hasBall){
+      const inward = player.team === "blue" ? blueDirection : -blueDirection;
+
+      ball.position.set(
+        gx + inward * 1.35,
+        1.15,
+        player.mesh.position.z
+      );
+      ballVelocity.set(0,0,0);
+
+      // Вратарь держит мяч, пока ВСЕ соперники не выйдут из штрафной.
+      // Границы штрафной: 16 м от линии ворот и 18 м по ширине.
+      const opponentsInArea = players.filter((p, i) => {
+        if(i === index || p.team === player.team || p.goalkeeper) return false;
+        const depthFromGoal = (p.mesh.position.x - gx) * inward;
+        return depthFromGoal >= -1 && depthFromGoal <= 17 &&
+               Math.abs(p.mesh.position.z) <= 18.5;
+      });
+
+      if(opponentsInArea.length === 0){
+        // Выбираем ближайшего полевого союзника и отдаём ему мяч.
+        let receiver = null;
+        let nearest = Infinity;
+        players.forEach((p, i) => {
+          if(i === index || p.team !== player.team || p.goalkeeper) return;
+          const d = p.mesh.position.distanceToSquared(player.mesh.position);
+          if(d < nearest){
+            nearest = d;
+            receiver = p;
+          }
+        });
+
+        if(receiver){
+          const from = new THREE.Vector3(
+            gx + inward * 1.6,
+            1.15,
+            player.mesh.position.z
+          );
+          const to = new THREE.Vector3(
+            receiver.mesh.position.x,
+            1.15,
+            receiver.mesh.position.z
+          );
+          const passDir = to.sub(from).normalize();
+
+          player.hasBall = false;
+          player.holdTimer = 0;
+          ball.position.copy(from);
+          ballVelocity.copy(passDir).multiplyScalar(11);
+          lastBallTeam = player.team;
+          lastBallPlayer = index;
+        }
+      }
+    }
+  }
+  else if(keeperHolding) {
+    // Все полевые игроки обеих команд покидают штрафную площадку
+    // того вратаря, который держит мяч. Управляемые игроки тоже
+    // временно получают эту команду, пока не выйдут за линию.
+    const keeperIndex = players.indexOf(keeperHolding);
+    const keeperTeam = keeperHolding.team;
+    const gx = keeperTeam === "blue" ? -46 * blueDirection : 46 * blueDirection;
+    const inward = keeperTeam === "blue" ? blueDirection : -blueDirection;
+
+    const depth = (player.mesh.position.x - gx) * inward;
+    const z = player.mesh.position.z;
+    const insideDepth = depth >= -1 && depth <= 17;
+    const insideWidth = Math.abs(z) <= 18.5;
+
+    if(insideDepth && insideWidth) {
+      // Выбираем ближайшую границу выхода: к центру поля или за боковую линию штрафной.
+      const toMidfield = 18.5 - depth;
+      const toSide = 18.5 - Math.abs(z);
+
+      target.copy(player.mesh.position);
+      if(toMidfield <= toSide) {
+        target.x = gx + inward * 18.8;
+      } else {
+        target.z = (z >= 0 ? 1 : -1) * 19.2;
+      }
+    } else {
+      // Игрок уже снаружи — остаётся на месте до передачи вратаря.
+      target.copy(player.mesh.position);
+    }
+  }
+  else {
+    // ===================================================
+    // ПОЛЕВЫЕ ИГРОКИ — активный поиск мяча и поддержка атаки
+    // ===================================================
+    // В список преследователей не включаем игроков, которыми управляют
+    // телефоны. Иначе выбранный игрок мог стать "преследователем",
+    // но выйти из updateAI раньше, из-за чего остальные стояли.
+    const eligible = players
+      .map((p, i) => ({ p, i }))
+      .filter(({ p, i }) =>
+        p.team === player.team &&
+        !p.goalkeeper &&
+        i !== activePlayer &&
+        !(onlineMode && i === remoteActivePlayer)
+      );
+
+    let chaser = null;
+    let bestDistance = Infinity;
+    for (const entry of eligible) {
+      const d = entry.p.mesh.position.distanceTo(ball.position);
+      if (d < bestDistance) {
+        bestDistance = d;
+        chaser = entry.p;
+      }
+    }
+
+    // Ближайший свободный AI каждой команды активно идёт к мячу.
+    if (player === chaser) {
+      target.copy(ball.position);
+      // Не останавливаться точно на мяче: подойти к нему с игровой стороны.
+      const attackSign = player.team === "blue" ? blueDirection : -blueDirection;
+      target.x -= attackSign * 1.1;
+    } else {
+      // Остальные игроки двигаются в поддержку, а не стоят на исходных местах.
+      const attackSign = player.team === "blue" ? blueDirection : -blueDirection;
+      const home = player.home || player.mesh.position;
+      target.copy(home);
+
+      // Сдвигаемся вслед за атакой и немного следим за шириной атаки.
+      target.x += attackSign * 5;
+      target.z += THREE.MathUtils.clamp(
+        (ball.position.z - home.z) * 0.28,
+        -7,
+        7
+      );
+
+      // Если мяч на чужой половине — подключаемся к атаке,
+      // если на своей — возвращаемся помогать обороне.
+      const ballOnAttackSide =
+        (ball.position.x - home.x) * attackSign > 0;
+      target.x += ballOnAttackSide ? attackSign * 3 : -attackSign * 2;
+    }
+  }
+
+  const direction = target.sub(player.mesh.position);
+  direction.y = 0;
+
+  if(direction.lengthSq() > 0.16){
+    direction.normalize();
+    const exitSpeed = keeperHolding ? Math.max(player.speed * 1.6, 7.5) : player.speed;
+    player.mesh.position.addScaledVector(direction, exitSpeed * dt);
+
+    // Не выпускаем AI за пределы поля.
+    player.mesh.position.x = THREE.MathUtils.clamp(player.mesh.position.x, -48.5, 48.5);
+    player.mesh.position.z = THREE.MathUtils.clamp(player.mesh.position.z, -28.5, 28.5);
+
+    player.mesh.rotation.y = Math.atan2(direction.x, direction.z);
+  }
+}
+
+/* =====================================================
+   МЯЧ
+===================================================== */
+
+function updateBall(dt){
+
+  // Вратарь держит мяч через updateAI, поэтому физика мяча
+  // в этот момент полностью останавливается.
+  if(players.some(p => p.goalkeeper && p.hasBall)){
+    return;
+  }
+
+  ball.position
+    .addScaledVector(
+      ballVelocity,
+      dt
+    );
+
+
+  /*
+    Трение мяча .97
+  */
+
+  ballVelocity.multiplyScalar(
+    Math.pow(
+      .97,
+      dt * 60
+    )
+  );
+
+
+  /*
+    Верхняя/нижняя граница
+  */
+
+  if(
+    ball.position.z < -29
+  ){
+
+    ball.position.z =
+      -29;
+
+    ballVelocity.z =
+      Math.abs(
+        ballVelocity.z
+      );
+  }
+
+
+  if(
+    ball.position.z > 29
+  ){
+
+    ball.position.z =
+      29;
+
+    ballVelocity.z =
+      -Math.abs(
+        ballVelocity.z
+      );
+  }
+
+
+  /*
+    Игроки и мяч: подбор, ведение и отбор AI.
+  */
+  players.forEach((player, index) => {
+    if(player.goalkeeper) return;
+
+    const dx = ball.position.x - player.mesh.position.x;
+    const dz = ball.position.z - player.mesh.position.z;
+    const distance = Math.hypot(dx, dz);
+
+    if(distance >= 1.9) return;
+
+    // Управляемый игрок любой команды ведёт мяч по своему джойстику.
+    if(index === activePlayer || (onlineMode && index === remoteActivePlayer)){
+      const control = index === activePlayer ? input : remoteInput;
+      lastBallTeam = player.team;
+      lastBallPlayer = index;
+      kickoffPending = false;
+
+      const inputLength = Math.hypot(control.x, control.y);
+      if(inputLength > 0.1){
+        const direction = new THREE.Vector3(control.x, 0, control.y).normalize();
+        const desired = player.mesh.position.clone().addScaledVector(direction, 2.0);
+        ball.position.lerp(new THREE.Vector3(desired.x, 1.15, desired.z), 0.38);
+        ballVelocity.multiplyScalar(0.65);
+      }
+      return;
+    }
+
+    // Не даём нескольким игрокам одной команды одновременно толкать мяч.
+    const previousTeam = lastBallTeam;
+    if(previousTeam === player.team && lastBallPlayer !== index){
+      const owner = players[lastBallPlayer];
+      if(owner && owner.mesh.position.distanceTo(ball.position) < distance - 0.05){
+        return;
+      }
+    }
+
+    // Соперник действительно коснулся мяча — это полноценный отбор.
+    if(previousTeam !== player.team){
+      lastBallTeam = player.team;
+      lastBallPlayer = index;
+      if(player.team === "blue") kickoffPending = false;
+    } else if(lastBallPlayer < 0 || !players[lastBallPlayer]){
+      lastBallPlayer = index;
+    }
+
+    const attackDir = player.team === "blue" ? blueDirection : -blueDirection;
+    const goalX = attackDir * 50;
+    const distanceToGoal = Math.abs(goalX - player.mesh.position.x);
+
+    // AI иногда бьёт по воротам, когда подобрал мяч и находится
+    // достаточно близко к воротам соперника.
+    player.aiShotCooldown = Math.max(0, (player.aiShotCooldown || 0) - dt);
+    if(distanceToGoal < 25 && player.aiShotCooldown <= 0){
+      const aimZ = THREE.MathUtils.clamp(
+        -player.mesh.position.z * 0.22,
+        -3.5,
+        3.5
+      );
+      const shotDir = new THREE.Vector3(
+        goalX - ball.position.x,
+        0,
+        aimZ - ball.position.z
+      ).normalize();
+
+      ball.position.set(
+        player.mesh.position.x + shotDir.x * 1.8,
+        1.15,
+        player.mesh.position.z + shotDir.z * 1.8
+      );
+      ballVelocity.copy(shotDir).multiplyScalar(23 + Math.random() * 7);
+      player.aiShotCooldown = 1.8 + Math.random() * 1.2;
+      lastBallTeam = player.team;
+      lastBallPlayer = index;
+      if(player.team === "blue") kickoffPending = false;
+      kickSound();
+      return;
+    }
+
+    // Ведение: мяч остаётся немного впереди игрока по направлению атаки.
+    const dribbleZ = THREE.MathUtils.clamp(
+      ball.position.z - player.mesh.position.z,
+      -0.45,
+      0.45
+    );
+    const dribbleDir = new THREE.Vector3(attackDir, 0, dribbleZ).normalize();
+    const ahead = player.mesh.position.clone().addScaledVector(dribbleDir, 1.8);
+    ball.position.lerp(new THREE.Vector3(ahead.x, 1.15, ahead.z), 0.34);
+    ballVelocity.multiplyScalar(0.58);
+  });
+
+  /*
+    ГОЛ — проверяем ДО ограничения по боковой линии.
+    Передняя линия ворот находится примерно на x = +/-50.
+    Поэтому мяч должен считаться забитым сразу при пересечении
+    линии ворот, а не после того, как его отбросит граница поля.
+  */
+
+  if(
+    ball.position.x >= 49.5 &&
+    ballVelocity.x > 0 &&
+    Math.abs(ball.position.z) < 9
+  ){
+    goalForSide("right");
+    return;
+  }
+
+  if(
+    ball.position.x <= -49.5 &&
+    ballVelocity.x < 0 &&
+    Math.abs(ball.position.z) < 9
+  ){
+    goalForSide("left");
+    return;
+  }
+
+
+  /*
+    Боковые стены
+  */
+
+  if(
+    ball.position.x > 50
+  ){
+
+    ball.position.x = 50;
+
+    ballVelocity.x =
+      -Math.abs(
+        ballVelocity.x
+      );
+  }
+
+
+  if(
+    ball.position.x < -50
+  ){
+
+    ball.position.x = -50;
+
+    ballVelocity.x =
+      Math.abs(
+        ballVelocity.x
+      );
+  }
+
+
+  /*
+    Мяч слишком далеко
+  */
+
+  if(
+    ball.position.y < -5
+  ){
+
+    ball.position.set(
+      0,
+      1.15,
+      0
+    );
+
+    ballVelocity.set(
+      0,
+      0,
+      0
+    );
+  }
+}
+
+
+/* =====================================================
+   УДАР
+===================================================== */
+
+
+function shootBall(power, playerIndex = activePlayer, control = input){
+  const player = players[playerIndex];
+  if(!player || !playing || paused) return;
+  let dir = new THREE.Vector3(control.x,0,control.y);
+  const attackDir = player.team === "blue" ? blueDirection : -blueDirection;
+  if(dir.lengthSq() < .01) dir.set(attackDir,0,0); else dir.normalize();
+  if(ball.position.distanceTo(player.mesh.position) > 3.5) return;
+  ball.position.set(player.mesh.position.x + dir.x * 2, 1.15, player.mesh.position.z + dir.z * 2);
+  ballVelocity.copy(dir).multiplyScalar(20 + 26 * Math.max(0,Math.min(1,power)));
+  lastBallTeam = player.team; lastBallPlayer = playerIndex; kickSound(); vibrate(18);
+}
+
+function passBall(playerIndex = activePlayer){
+  const player=players[playerIndex]; if(!player) return;
+  let target=null,best=Infinity;
+  players.forEach((p,i)=>{
+    if(i===playerIndex || p.team!==player.team || p.goalkeeper) return;
+    const d=player.mesh.position.distanceTo(p.mesh.position);
+    if(d<best){best=d;target=p;}
+  });
+  if(!target) return;
+  const d=target.mesh.position.clone().sub(ball.position); d.y=0;
+  if(d.lengthSq()<.01) return;
+  d.normalize(); ballVelocity.copy(d).multiplyScalar(18);
+  lastBallTeam=player.team; lastBallPlayer=playerIndex; kickSound(); vibrate(12);
+}
+
+function switchPlayer(team = localTeam){
+  // Переключаемся на ближайшего к мячу свободного полевого игрока.
+  const isLocal = team === localTeam;
+  const current = isLocal ? activePlayer : remoteActivePlayer;
+  const candidates = players
+    .map((p, i) => ({ p, i }))
+    .filter(o => o.p.team === team && !o.p.goalkeeper);
+
+  if (candidates.length < 2) return false;
+
+  // Сортировка по расстоянию к мячу. Если текущий игрок уже первый,
+  // выбираем следующего; иначе выбираем ближайшего.
+  candidates.sort((a, b) =>
+    a.p.mesh.position.distanceToSquared(ball.position) -
+    b.p.mesh.position.distanceToSquared(ball.position)
+  );
+
+  let next = candidates.find(o => o.i !== current);
+  if (!next) return false;
+
+  // При повторном нажатии не застреваем на одном игроке:
+  // выбираем следующего по списку относительно текущего.
+  const currentRank = candidates.findIndex(o => o.i === current);
+  if (currentRank >= 0 && candidates[0].i === current) {
+    next = candidates[(currentRank + 1) % candidates.length];
+  }
+
+  if (isLocal) activePlayer = next.i;
+  else remoteActivePlayer = next.i;
+
+  return true;
+}
+
+let lastTackle=0;
+function tackleBall(playerIndex = activePlayer){
+  const now=performance.now(); if(now-lastTackle<700) return; lastTackle=now;
+  const player=players[playerIndex]; if(!player) return;
+  let nearest=null,nearestD=3.5;
+  players.forEach(p=>{ if(p.team===player.team) return; const d=p.mesh.position.distanceTo(player.mesh.position); if(d<nearestD){nearestD=d;nearest=p;} });
+  if(nearest){
+    const d=ball.position.clone().sub(nearest.mesh.position); d.y=0;
+    if(d.lengthSq()<.01) d.set(player.team==="blue"?1:-1,0,0); else d.normalize();
+    ball.position.set(player.mesh.position.x+d.x*1.5,1.15,player.mesh.position.z+d.z*1.5);
+    ballVelocity.copy(d).multiplyScalar(10); lastBallTeam=player.team; lastBallPlayer=playerIndex; kickSound(); vibrate([20,30,20]);
+  }
+}
+
+function resetPositions(){
+  kickoffPending = true;
+  // После каждого гола команды меняются сторонами поля.
+  // Состав и расстановка зеркально разворачиваются вместе с направлением атаки.
+  const starts=[
+    [-30 * blueDirection,-14],
+    [-18 * blueDirection,0],
+    [-30 * blueDirection,14],
+    [-46 * blueDirection,0],
+    [30 * blueDirection,-14],
+    [18 * blueDirection,0],
+    [30 * blueDirection,14],
+    [46 * blueDirection,0]
+  ];
+
+  players.forEach((p,i)=>{
+    p.mesh.position.set(starts[i][0],0,starts[i][1]);
+    p.hasBall = false;
+    p.holdTimer = 0;
+    if(p.home) p.home.set(starts[i][0],0,starts[i][1]);
+  });
+
+  activePlayer = localTeam === "blue" ? 0 : 4;
+  remoteActivePlayer = localTeam === "blue" ? 4 : 0;
+  ball.position.set(0,1.15,0);
+  ballVelocity.set(0,0,0);
+  lastBallTeam = null;
+  lastBallPlayer = null;
+}
+
+function goalForSide(side){
+  // Синие атакуют в сторону blueDirection.
+  // Если мяч залетел в противоположные ворота после касания
+  // синего игрока — это автогол, поэтому очко получает красная команда.
+  const ballEnteredRight = side === "right";
+  const blueAttacksRight = blueDirection === 1;
+  const blueScored = ballEnteredRight === blueAttacksRight;
+
+  // Если последнее касание известно, учитываем автогол:
+  // команда, забившая мяч в свои ворота, НЕ получает очко.
+  let team;
+  if(lastBallTeam === "blue") team = blueScored ? "blue" : "red";
+  else if(lastBallTeam === "red") team = blueScored ? "blue" : "red";
+  else team = blueScored ? "blue" : "red";
+
+  goal(team);
+}
+
+function goal(team){
+  if(team==="blue") blueScore++; else redScore++;
+  updateScore(); goalSound(); vibrate([40,40,80]);
+  const msg=document.getElementById("goalMessage");
+  msg.textContent=team==="blue"?"ГОЛ СИНИХ!":"ГОЛ КРАСНЫХ!";
+  msg.classList.add("show");
+  setTimeout(()=>msg.classList.remove("show"),1800);
+  blueDirection*=-1;
+  resetPositions();
+}
+
+function startMatch(announceOnline = true){
+  // Сначала запускаем матч и интерфейс. Ошибка аудио не должна
+  // оставлять игру в состоянии «экран открылся, но ничего не работает».
+  blueScore=0; redScore=0; blueDirection=1; timeLeft=90;
+  playing=true; paused=false; charging=false; charge=0; sprinting=false;
+  resetPositions(); updateScore(); updateTimer();
+  if(onlineMode && isRoomHost && announceOnline && socket) socket.emit("start-match", {roomCode});
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("onlineScreen").classList.add("hidden");
+  document.getElementById("pauseScreen").classList.add("hidden");
+  document.getElementById("resultScreen").classList.add("hidden");
+  initAudio();
+  if(audioContext && audioContext.state==="suspended") audioContext.resume().catch(()=>{});
+  try{
+    if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
+    if(screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(()=>{});
+  }catch(e){}
+  setTimeout(resize, 100);
+  setTimeout(resize, 500);
+}
+function pauseGame(){if(!playing)return;paused=true;document.getElementById("pauseScreen").classList.remove("hidden");}
+function resumeGame(){paused=false;document.getElementById("pauseScreen").classList.add("hidden");}
+function endMatch(){playing=false;paused=false;document.getElementById("resultText").textContent=`${blueScore} : ${redScore}`;document.getElementById("resultScreen").classList.remove("hidden");}
+
+/* =====================================================
+   ОНЛАЙН: СОЗДАНИЕ КОМНАТЫ И СИНХРОНИЗАЦИЯ
+===================================================== */
+function setOnlineStatus(message){ document.getElementById("onlineStatus").textContent=message; }
+// После публикации server.js на Node.js-хостинге вставь сюда адрес сервера.
+const SOCKET_SERVER_URL = "https://football-server1-0amx.onrender.com";
+
+function connectSocket(){
+  if(socket && socket.connected) return socket;
+  socket = io(SOCKET_SERVER_URL, {
+    transports: ["websocket", "polling"],
+    reconnection: true,
+    reconnectionAttempts: 10,
+    timeout: 15000
+  });
+  socket.on("connect",()=>setOnlineStatus("Подключено к серверу"));
+  socket.on("connect_error",()=>setOnlineStatus("Нет соединения с сервером. Проверь адрес сервера."));
+  socket.on("room-created",data=>{
+    onlineMode=true; isRoomHost=true; localTeam="blue"; roomCode=data.roomCode;
+    document.getElementById("roomCodeDisplay").textContent="КОД: "+roomCode;
+    document.getElementById("startOnlineButton").classList.add("hidden");
+    document.getElementById("startOnlineButton").disabled=true;
+    setOnlineStatus("Ты за СИНИХ. Отправь код другу.");
+  });
+  socket.on("room-joined",data=>{
+    onlineMode=true; isRoomHost=false; localTeam="red"; roomCode=data.roomCode;
+    document.getElementById("roomCodeDisplay").textContent="КОД: "+roomCode;
+    document.getElementById("startOnlineButton").classList.add("hidden");
+    setOnlineStatus("Ты за КРАСНЫХ. Ждём, пока хозяин начнёт матч.");
+  });
+  socket.on("peer-joined",()=>{setOnlineStatus("Друг подключился! Можно начинать матч.");const b=document.getElementById("startOnlineButton");b.classList.remove("hidden");b.disabled=false;});
+  socket.on("peer-left",()=>{setOnlineStatus("Соперник отключился от комнаты.");const b=document.getElementById("startOnlineButton");b.classList.add("hidden");b.disabled=true;});
+  socket.on("room-error",data=>setOnlineStatus(data.message || "Не удалось подключиться к комнате."));
+  socket.on("start-match",()=>{ if(!isRoomHost){ localTeam="red"; startMatch(false); } });
+  socket.on("input",data=>{ if(isRoomHost){ remoteInput={x:data.x||0,y:data.y||0,sprinting:!!data.sprinting}; } });
+  socket.on("action",data=>{ if(isRoomHost && playing && !paused){
+    const idx=remoteActivePlayer;
+    if(data.type==="switch") switchPlayer("red");
+    if(data.type==="shoot") shootBall(data.power||.5,idx,remoteInput);
+    if(data.type==="pass") passBall(idx);
+    if(data.type==="tackle") tackleBall(idx);
+  }});
+  socket.on("snapshot",data=>{ if(!isRoomHost) applySnapshot(data); });
+  return socket;
+}
+function applySnapshot(data){
+  if(!data || !Array.isArray(data.players)) return;
+  data.players.forEach((v,i)=>{ const p=players[i]; if(!p||!v) return; p.mesh.position.set(v.x,0,v.z); p.mesh.rotation.y=v.r; p.hasBall=!!v.h; p.holdTimer=v.t||0; });
+  ball.position.set(data.ball.x,data.ball.y,data.ball.z); ballVelocity.set(data.velocity.x,data.velocity.y,data.velocity.z);
+  blueScore=data.blueScore; redScore=data.redScore; timeLeft=data.timeLeft; blueDirection=data.blueDirection;
+  activePlayer=localTeam==="blue"?data.blueActive:data.redActive;
+  remoteActivePlayer=localTeam==="blue"?data.redActive:data.blueActive;
+  const wasPlaying=playing;
+  playing=!!data.playing; paused=!!data.paused; updateScore(); updateTimer();
+  if(playing){ document.getElementById("startScreen").classList.add("hidden"); document.getElementById("onlineScreen").classList.add("hidden"); }
+  if(wasPlaying && !playing){document.getElementById("resultText").textContent=`${blueScore} : ${redScore}`;document.getElementById("resultScreen").classList.remove("hidden");}
+}
+function sendAction(type,extra={}){
+  if(!onlineMode || !socket) return false;
+  if(isRoomHost){
+    if(type==="switch") switchPlayer(localTeam);
+    if(type==="shoot") shootBall(extra.power||.5,activePlayer,input);
+    if(type==="pass") passBall(activePlayer);
+    if(type==="tackle") tackleBall(activePlayer);
+  } else socket.emit("action",{roomCode,type,...extra});
+  return true;
+}
+function publishNetworkState(){
+  if(!onlineMode || !socket || !socket.connected) return;
+  if(!isRoomHost){ socket.emit("input",{roomCode,x:input.x,y:input.y,sprinting}); return; }
+  const now=performance.now(); if(now-lastNetworkSend<50) return; lastNetworkSend=now;
+  socket.emit("snapshot",{roomCode,players:players.map(p=>({x:p.mesh.position.x,z:p.mesh.position.z,r:p.mesh.rotation.y,h:p.hasBall,t:p.holdTimer})),ball:{x:ball.position.x,y:ball.position.y,z:ball.position.z},velocity:{x:ballVelocity.x,y:ballVelocity.y,z:ballVelocity.z},blueScore,redScore,timeLeft,blueDirection,blueActive:activePlayer,redActive:remoteActivePlayer,playing,paused});
+}
+
+/* КНОПКИ */
+function bind(id,fn){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.addEventListener("click",e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    fn(e);
+  });
+}
+bind("playButton",()=>{onlineMode=false;localTeam="blue";startMatch();});
+bind("onlineButton",()=>{document.getElementById("startScreen").classList.add("hidden");document.getElementById("onlineScreen").classList.remove("hidden");connectSocket();});
+bind("backOnlineButton",()=>{document.getElementById("onlineScreen").classList.add("hidden");document.getElementById("startScreen").classList.remove("hidden");});
+bind("createRoomButton",()=>{connectSocket();socket.emit("create-room");setOnlineStatus("Создаём комнату...");});
+bind("joinRoomButton",()=>{connectSocket();const code=document.getElementById("roomCodeInput").value.trim().toUpperCase();if(code.length!==6){setOnlineStatus("Введи шестизначный код комнаты.");return;}socket.emit("join-room",{roomCode:code});setOnlineStatus("Подключаемся к комнате...");});
+bind("startOnlineButton",()=>{if(!onlineMode||!isRoomHost)return;startMatch();});
+bind("pauseButton",()=>{if(onlineMode&&!isRoomHost)return;paused?resumeGame():pauseGame();});
+bind("resumeButton",()=>resumeGame());
+bind("restartButton",()=>startMatch());
+bind("againButton",()=>startMatch());
+bind("controlsButton",()=>alert("Левая часть экрана — движение. SHOOT — удар. PASS — пас. SWITCH — смена игрока. ОТБОР — отбор мяча."));
+bind("settingsButton",()=>document.getElementById("settingsPanel").style.display="flex");
+bind("closeSettings",()=>document.getElementById("settingsPanel").style.display="none");
+bind("muteButton",()=>{muted=!muted;document.getElementById("muteButton").textContent=muted?"🔇":"🔊";if(masterGain)masterGain.gain.value=muted?0:.12;});
+bind("soundSetting",()=>{muted=!muted;document.getElementById("soundSetting").textContent=`ЗВУК: ${muted?"ВЫКЛ":"ВКЛ"}`;if(masterGain)masterGain.gain.value=muted?0:.12;});
+bind("vibrationSetting",()=>{vibrationEnabled=!vibrationEnabled;document.getElementById("vibrationSetting").textContent=`ВИБРАЦИЯ: ${vibrationEnabled?"ВКЛ":"ВЫКЛ"}`;});
+bind("passButton",()=>{if(playing&&!paused){if(onlineMode)sendAction("pass");else passBall();}});
+// Отдельная обработка SWITCH для мобильных браузеров.
+const switchButton = document.getElementById("switchButton");
+if (switchButton) {
+  let lastSwitchTap = 0;
+  const doSwitch = e => {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    const now = Date.now();
+    if (now - lastSwitchTap < 350) return;
+    lastSwitchTap = now;
+    if (!playing || paused) return;
+
+    if (onlineMode) {
+      sendAction("switch");
+    } else {
+      switchPlayer(localTeam);
+    }
+  };
+  switchButton.addEventListener("pointerdown", doSwitch, { passive: false });
+  switchButton.addEventListener("click", e => {
+    // На устройствах без Pointer Events используем обычный click.
+    if (!("PointerEvent" in window)) doSwitch(e);
+    else { e.preventDefault(); e.stopPropagation(); }
+  });
+}
+bind("tackleButton",()=>{if(playing&&!paused){if(onlineMode)sendAction("tackle");else tackleBall();}});
+
+const sprintButton = document.getElementById("sprintButton");
+if(sprintButton){
+  const stopSprint = e => {
+    if(e) { e.preventDefault(); e.stopPropagation(); }
+    sprinting = false;
+  };
+  sprintButton.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if(!playing || paused) return;
+    sprinting = true;
+    if(sprintButton.setPointerCapture) sprintButton.setPointerCapture(e.pointerId);
+  }, {passive:false});
+  sprintButton.addEventListener("pointerup", stopSprint, {passive:false});
+  sprintButton.addEventListener("pointercancel", stopSprint);
+  sprintButton.addEventListener("lostpointercapture", stopSprint);
+}
+
+const shootButton=document.getElementById("shootButton");
+if(shootButton){
+  shootButton.addEventListener("pointerdown",e=>{e.preventDefault();e.stopPropagation();if(!playing||paused)return;charging=true;charge=0;document.getElementById("chargeRing").style.display="block";},{passive:false});
+  shootButton.addEventListener("pointerup",e=>{e.preventDefault();e.stopPropagation();if(!charging)return;charging=false;document.getElementById("chargeRing").style.display="none";if(onlineMode)sendAction("shoot",{power:Math.max(.25,charge)});else shootBall(Math.max(.25,charge));},{passive:false});
+  shootButton.addEventListener("pointercancel",()=>{charging=false;document.getElementById("chargeRing").style.display="none"});
+}
+
+const clock=new THREE.Clock();
+const minimap=document.getElementById("minimap");
+const miniCtx=minimap.getContext("2d");
+// Раздвигает игроков, чтобы они не проходили друг сквозь друга.
+function resolvePlayerCollisions(){
+  const minDistance = 1.35;
+  const minDistanceSq = minDistance * minDistance;
+  for(let i = 0; i < players.length; i++){
+    const a = players[i];
+    if(!a || !a.mesh) continue;
+    for(let j = i + 1; j < players.length; j++){
+      const b = players[j];
+      if(!b || !b.mesh) continue;
+      const dx = b.mesh.position.x - a.mesh.position.x;
+      const dz = b.mesh.position.z - a.mesh.position.z;
+      const distSq = dx * dx + dz * dz;
+      if(distSq >= minDistanceSq) continue;
+      let dist = Math.sqrt(distSq);
+      let nx, nz;
+      if(dist < 0.0001){
+        // Если игроки стоят в одной точке, выбираем стабильное направление.
+        const angle = (i * 17 + j * 31) * 0.1;
+        nx = Math.cos(angle);
+        nz = Math.sin(angle);
+        dist = 0;
+      } else {
+        nx = dx / dist;
+        nz = dz / dist;
+      }
+      const push = (minDistance - dist) * 0.5;
+      a.mesh.position.x -= nx * push;
+      a.mesh.position.z -= nz * push;
+      b.mesh.position.x += nx * push;
+      b.mesh.position.z += nz * push;
+      // Не даём столкновению вытолкнуть игроков за пределы поля.
+      for(const player of [a,b]){
+        player.mesh.position.x = Math.max(-49, Math.min(49, player.mesh.position.x));
+        player.mesh.position.z = Math.max(-29, Math.min(29, player.mesh.position.z));
+      }
+    }
+  }
+}
+
+function updateMinimap(){
+  const w=200,h=140; minimap.width=w;minimap.height=h;
+  miniCtx.clearRect(0,0,w,h); miniCtx.fillStyle="#176b32";miniCtx.fillRect(0,0,w,h);
+  miniCtx.strokeStyle="rgba(255,255,255,.7)";miniCtx.strokeRect(2,2,w-4,h-4);
+  miniCtx.beginPath();miniCtx.moveTo(w/2,0);miniCtx.lineTo(w/2,h);miniCtx.stroke();
+  const draw=(x,z,c)=>{miniCtx.fillStyle=c;miniCtx.fillRect((x+50)/100*w-3,(z+30)/60*h-3,6,6)};
+  players.forEach(p=>draw(p.mesh.position.x,p.mesh.position.z,p.team==="blue"?"#2196f3":"#ef5350"));draw(ball.position.x,ball.position.z,"#fff");
+}
+function updateCamera(dt){
+  const target=new THREE.Vector3(ball.position.x,0,ball.position.z);
+  const desired=new THREE.Vector3(target.x-20,28,target.z+32);
+  camera.position.lerp(desired,1-Math.pow(.001,dt));camera.lookAt(target.x,0,target.z);
+}
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),.05);
+  if(playing&&!paused){
+    if(charging){charge=Math.min(1,charge+dt*.9);document.getElementById("chargeRing").style.setProperty("--charge",`${charge*360}deg`)}
+    if(!onlineMode || isRoomHost){
+      updateControlledPlayer(dt,activePlayer,input,sprinting);
+      if(onlineMode) updateControlledPlayer(dt,remoteActivePlayer,remoteInput,remoteInput.sprinting);
+      players.forEach((p,i)=>updateAI(p,i,dt));
+      resolvePlayerCollisions();
+      updateBall(dt);
+      timeLeft-=dt;updateTimer();if(timeLeft<=0)endMatch();
+    }
+    publishNetworkState();
+  }
+  updateCamera(dt);updateMinimap();renderer.render(scene,camera);
+}
+function resize(){
+  const w = Math.max(1, shell.clientWidth || window.innerWidth);
+  const h = Math.max(1, shell.clientHeight || window.innerHeight);
+  renderer.setSize(w, h, false);
+  renderer.domElement.style.width = "100%";
+  renderer.domElement.style.height = "100%";
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener("resize", resize, {passive:true});
+window.addEventListener("orientationchange", ()=>setTimeout(resize,150), {passive:true});
+if(window.visualViewport) window.visualViewport.addEventListener("resize", ()=>setTimeout(resize,50), {passive:true});
+if(window.ResizeObserver){ new ResizeObserver(()=>resize()).observe(shell); }
+resize();updateScore();updateTimer();animate();
+
+</script>
+</body>
+</html>
